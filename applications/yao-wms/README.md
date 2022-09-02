@@ -1,1 +1,0 @@
-# YAO WMS Dockerfile

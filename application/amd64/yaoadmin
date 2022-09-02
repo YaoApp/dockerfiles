@@ -1,0 +1,121 @@
+#!/bin/sh
+# 
+# Environmental Variables
+# 
+#   YAO_INIT The initialization method, "demo" is to create the demo data
+#   YAO_PROCESS_RESET Run the process after the migration reset completely
+#   YAO_PROCESS_DEMO Run the process after resetting to create the demo data (if the --with-demo flag is true)
+# 
+# Tests
+# 
+#   YAO_ROOT=/Users/max/Code/yao/demo-crm YAO_PROCESS_RESET=flows.init.menu YAO_PROCESS_DEMO=flows.demo.fake ./yaoadmin reset --with-demo
+#   YAO_ROOT=/Users/max/Code/yao/demo-crm YAO_INIT=demo YAO_PROCESS_RESET=flows.init.menu YAO_PROCESS_DEMO=flows.demo.fake ./yaoadmin start
+
+if [ -z "$YAO_ROOT" ]; then
+    YAO_ROOT=/data/app
+fi
+
+if [ ! -f "$YAO_ROOT" ]; then
+    mkdir -p $YAO_ROOT
+    RET=$?
+    if [ $RET -ne 0 ]; then
+        echo Create $YAO_ROOT failed
+        exit 1
+    fi
+fi
+
+CMD=$1
+ROOT=$YAO_ROOT
+YAO=yao
+
+AppReset(){
+    demo=$1
+    init=$2
+    mode=$(yao_mode)
+    if [ $mode = "production" ];then
+
+        if  [ -z "$init" ]; then 
+            confirm 'Will clear all data (Type YES to continue, Ctrl + C to cancel)' YES
+        fi
+
+        cd $ROOT && $YAO migrate --force --reset
+        rm -rf "$ROOT/data/*"
+    else
+        cd $ROOT && $YAO migrate --reset 
+        rm -rf "$ROOT/data/*"
+    fi
+
+    [[ ! -z "$YAO_PROCESS_RESET" ]] && yao_run $YAO_PROCESS_RESET
+
+    [[ "$demo" = "--with-demo" ]] && yao_run $YAO_PROCESS_DEMO
+}
+
+AppInit(){
+
+    if [ -z "$YAO_INIT" ]; then
+        return
+    fi
+
+    if [ -f "$ROOT/data/.lock" ]; then
+        return
+    fi
+    
+    touch "$ROOT/data/.lock"
+    if [ "$YAO_INIT" = "demo" ]; then
+        AppReset --with-demo --init
+    else 
+        AppReset --init
+    fi
+}
+
+AppStart(){
+    cd $ROOT && $YAO start
+}
+
+
+yao_run() {
+    YAO_PROCESS=$1
+    if [ -z "$YAO_PROCESS" ]; then 
+        return
+    fi
+
+    cd $ROOT && $YAO run $YAO_PROCESS
+    RET=$?
+    if [ $RET -ne 0 ]; then
+        echo $YAO_PROCESS failed
+        exit 1
+    fi
+}
+
+yao_mode(){
+   cd $ROOT && $YAO inspect |grep '"mode"' |awk -F : '{print $2}'  | sed 's/"//g' | sed 's/,//g'
+}
+
+
+confirm() {
+    message=$1
+    rightAnswer=$2
+    echo $message
+    read answer
+
+    if [ "$answer" = "$rightAnswer" ]; then 
+        return 
+    fi
+
+    confirm "$message" "$rightAnswer"
+}
+
+
+
+case $CMD in 
+
+    reset)
+    AppReset $2
+    ;;
+
+    start)
+    AppInit
+    AppStart
+    ;;
+
+esac
