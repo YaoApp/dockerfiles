@@ -29,8 +29,8 @@ ROOT=$YAO_ROOT
 YAO=yao
 
 AppReset(){
-    demo=$1
-    init=$2
+    init=$1
+    demo=$2
     mode=$(yao_mode)
     if [ $mode = "production" ];then
 
@@ -62,7 +62,7 @@ AppInit(){
     
     touch "$ROOT/data/.lock"
     if [ "$YAO_INIT" = "demo" ]; then
-        AppReset --with-demo --init
+        AppReset --init --with-demo
     else 
         AppReset --init
     fi
