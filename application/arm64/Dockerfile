@@ -39,6 +39,7 @@ RUN rm -rf /data/app &&  mkdir -p /data/app && \
     rm -rf /data/app/data  &&  \
     rm -rf /data/app/db  && \
     rm -rf /data/app/*.sh  && \
+    rm -rf /data/app/.env  && \
     mkdir -p /data/logs && \
     mkdir -p /data/db && \
     mkdir -p /data/app/data && \
