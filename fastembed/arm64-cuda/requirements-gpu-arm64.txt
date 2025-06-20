@@ -3,7 +3,9 @@ fastapi==0.104.1
 uvicorn[standard]==0.24.0
 python-multipart==0.0.6
 pydantic==2.5.0
+# PyTorch is pre-installed in l4t-pytorch base image
 transformers==4.36.2
-numpy==1.25.2
+numpy>=1.21.0,<1.25.0
 requests==2.31.0
+# Use CPU version for ARM64 as GPU support is limited
 onnxruntime>=1.17.0 
