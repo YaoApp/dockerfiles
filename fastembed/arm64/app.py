@@ -64,13 +64,35 @@ SUPPORTED_DENSE_MODELS = [
     "intfloat/multilingual-e5-large"
 ]
 
-# Supported sparse models from FastEmbed documentation
-SUPPORTED_SPARSE_MODELS = [
-    "Qdrant/bm25",
-    "Qdrant/bm42-all-minilm-l6-v2-attentions",
-    "prithivida/Splade_PP_en_v1",
-    "prithvida/Splade_PP_en_v1"
-]
+# Supported sparse models (dynamically loaded)
+SUPPORTED_SPARSE_MODELS = []
+
+def load_supported_models():
+    """Load actually supported models from FastEmbed"""
+    global SUPPORTED_DENSE_MODELS, SUPPORTED_SPARSE_MODELS, SUPPORTED_MODELS
+    
+    try:
+        # Get dense models
+        dense_models = TextEmbedding.list_supported_models()
+        SUPPORTED_DENSE_MODELS = [model['model'] for model in dense_models]
+        
+        # Get sparse models
+        sparse_models = SparseTextEmbedding.list_supported_models()
+        SUPPORTED_SPARSE_MODELS = [model['model'] for model in sparse_models]
+        
+        # Update combined list
+        SUPPORTED_MODELS = SUPPORTED_DENSE_MODELS + SUPPORTED_SPARSE_MODELS
+        
+        logger.info(f"Loaded {len(SUPPORTED_DENSE_MODELS)} dense models and {len(SUPPORTED_SPARSE_MODELS)} sparse models")
+        
+    except Exception as e:
+        logger.error(f"Failed to load supported models: {e}")
+        # Fallback to hardcoded list if dynamic loading fails
+        SUPPORTED_SPARSE_MODELS = [
+            "prithvida/Splade_PP_en_v1",
+            "prithivida/Splade_PP_en_v1"
+        ]
+        SUPPORTED_MODELS = SUPPORTED_DENSE_MODELS + SUPPORTED_SPARSE_MODELS
 
 # All supported models
 SUPPORTED_MODELS = SUPPORTED_DENSE_MODELS + SUPPORTED_SPARSE_MODELS
@@ -149,9 +171,12 @@ def get_or_load_model(model_name: str) -> Union[TextEmbedding, SparseTextEmbeddi
 async def lifespan(app: FastAPI):
     """Initialize and cleanup"""
     
-    # Startup - preload default model
+    # Startup - load supported models and preload default model
     logger.info("Initializing FastEmbed service...")
     try:
+        # Load supported models dynamically
+        load_supported_models()
+        
         logger.info(f"Preloading default model: {DEFAULT_MODEL}")
         get_or_load_model(DEFAULT_MODEL)
         logger.info(f"FastEmbed service initialized successfully (GPU: {ENABLE_GPU})")
@@ -258,11 +283,10 @@ async def create_embeddings(request: EmbedRequest):
             # Convert sparse embeddings to the expected format
             sparse_embeddings = []
             for embedding in embeddings:
-                # embedding is a scipy sparse matrix
-                coo_matrix = embedding.tocoo()
+                # embedding is a FastEmbed SparseEmbedding object with indices and values attributes
                 sparse_embeddings.append(SparseEmbedding(
-                    indices=coo_matrix.col.tolist(),
-                    values=coo_matrix.data.tolist()
+                    indices=embedding.indices.tolist() if hasattr(embedding.indices, 'tolist') else list(embedding.indices),
+                    values=embedding.values.tolist() if hasattr(embedding.values, 'tolist') else list(embedding.values)
                 ))
             
             return SparseEmbedResponse(

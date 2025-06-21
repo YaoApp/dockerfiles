@@ -1,9 +1,9 @@
-fastembed==0.2.7
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-python-multipart==0.0.6
-pydantic==2.5.0
-transformers==4.36.2
-numpy==1.25.2
-requests==2.31.0
+fastembed==0.7.1
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+python-multipart==0.0.12
+pydantic==2.10.4
+transformers==4.47.1  
+numpy>=1.21
+requests>=2.31.0
 onnxruntime>=1.17.0 
