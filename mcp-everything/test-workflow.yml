@@ -1,0 +1,98 @@
+name: Service Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      tags:
+        description: "Comment"
+jobs:
+  service-test:
+    runs-on: ubuntu-latest
+    services:
+      mcp-everything:
+        image: yaoapp/mcp-everything:latest
+        ports:
+          - "9021:3021"
+          - "9022:3022"
+
+    strategy:
+      matrix:
+        go: [1.24]
+
+    steps:
+      - name: Debug - Check container status
+        run: |
+          echo "=== Container Status ==="
+          docker ps --all
+
+      - name: Debug - Check container logs
+        run: |
+          echo "=== Container Logs ==="
+          # Get the container ID for mcp-everything
+          CONTAINER_ID=$(docker ps --all --filter "ancestor=yaoapp/mcp-everything:latest" --format "{{.ID}}" | head -1)
+          if [ -n "$CONTAINER_ID" ]; then
+            echo "Container ID: $CONTAINER_ID"
+            docker logs $CONTAINER_ID
+          else
+            echo "No container found for yaoapp/mcp-everything:latest"
+          fi
+
+      - name: Debug - Test direct container run
+        run: |
+          echo "=== Testing direct container run ==="
+          # Try to run the container directly to see what happens
+          docker run --rm --name test-mcp yaoapp/mcp-everything:latest &
+          CONTAINER_PID=$!
+          sleep 5
+
+          # Check if container is still running
+          if ps -p $CONTAINER_PID > /dev/null 2>&1; then
+            echo "Container is running"
+            docker logs test-mcp
+            docker stop test-mcp
+          else
+            echo "Container exited immediately"
+            docker logs test-mcp || echo "No logs available"
+          fi
+
+      - name: Debug - Check image contents
+        run: |
+          echo "=== Image Contents ==="
+          docker run --rm yaoapp/mcp-everything:latest ls -la /app
+
+      - name: Debug - Check start script
+        run: |
+          echo "=== Start Script Contents ==="
+          docker run --rm yaoapp/mcp-everything:latest cat /app/start-services.sh
+
+      - name: Debug - Check script permissions
+        run: |
+          echo "=== Script Permissions ==="
+          docker run --rm yaoapp/mcp-everything:latest ls -la /app/start-services.sh
+
+      - name: Debug - Check Node.js and pnpm
+        run: |
+          echo "=== Node.js and pnpm versions ==="
+          docker run --rm yaoapp/mcp-everything:latest node --version
+          docker run --rm yaoapp/mcp-everything:latest pnpm --version
+
+      - name: Debug - Check everything directory
+        run: |
+          echo "=== Everything Directory ==="
+          docker run --rm yaoapp/mcp-everything:latest ls -la /app/everything/
+
+      - name: Debug - Manual script execution
+        run: |
+          echo "=== Manual Script Execution ==="
+          docker run --rm yaoapp/mcp-everything:latest sh -c "cd /app/everything && pnpm start:sse" || echo "SSE start failed"
+
+      - name: Test MCP Everything (if container starts successfully)
+        run: |
+          echo "=== Testing MCP Services ==="
+          # Wait a bit for services to potentially start
+          sleep 10
+
+          # Test both endpoints
+          curl -v http://127.0.0.1:9021 || echo "Port 9021 not accessible"
+          curl -v http://127.0.0.1:9022 || echo "Port 9022 not accessible"
+        continue-on-error: true

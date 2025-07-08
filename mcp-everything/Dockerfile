@@ -2,7 +2,10 @@
 #  MCP Everything Server - Multi-Service
 #  Runs SSE and StreamableHttp services simultaneously
 #
-#  Build:
+#  Build (Multi-platform):
+#  docker buildx build --platform linux/amd64,linux/arm64 -t yaoapp/mcp-everything:latest --push .
+#
+#  Build (Single platform):
 #  docker build -t yaoapp/mcp-everything:latest .
 #
 #  Usage:
@@ -16,14 +19,24 @@
 # ===========================================
 
 FROM node:22-alpine
+
+# Build arguments for multi-platform support
+ARG TARGETPLATFORM
+ARG BUILDPLATFORM
+ARG TARGETOS
+ARG TARGETARCH
+
+# Set working directory
 WORKDIR /app
+
+# Copy source files
 ADD servers /app
 ADD start-services.sh /app/start-services.sh
 
-# # Install pnpm v8 (compatible with lockfileVersion 6.0)
+# Install pnpm v8 (compatible with lockfileVersion 6.0)
 RUN npm install -g pnpm@8
 
-# # Install dependencies
+# Install dependencies and build
 RUN pnpm install 
 RUN cd everything && pnpm install && pnpm build
 
